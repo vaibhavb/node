@@ -1410,7 +1410,7 @@ fs.copyFileSync('source.txt', 'destination.txt', COPYFILE_EXCL);
 <!-- YAML
 added: v0.1.31
 changes:
-  - version: REPLACEME
+  - version: v11.0.0
     pr-url: https://github.com/nodejs/node/pull/19898
     description: Impose new restrictions on `start` and `end`, throwing
                  more appropriate errors in cases when we cannot reasonably
@@ -2148,7 +2148,7 @@ Synchronous lstat(2).
 <!-- YAML
 added: v0.1.8
 changes:
-  - version: REPLACEME
+  - version: v11.0.0
     pr-url: https://github.com/nodejs/node/pull/21875
     description: The second argument can now be an `options` object with
                  `recursive` and `mode` properties.
@@ -2193,7 +2193,7 @@ See also: mkdir(2).
 <!-- YAML
 added: v0.1.21
 changes:
-  - version: REPLACEME
+  - version: v11.0.0
     pr-url: https://github.com/nodejs/node/pull/21875
     description: The second argument can now be an `options` object with
                  `recursive` and `mode` properties.

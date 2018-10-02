@@ -426,7 +426,7 @@ The `decipher.setAAD()` method must be called before [`decipher.update()`][].
 <!-- YAML
 added: v1.0.0
 changes:
-  - version: REPLACEME
+  - version: v11.0.0
     pr-url: https://github.com/nodejs/node/pull/17825
     description: This method now throws if the GCM tag length is invalid.
   - version: v7.2.0
@@ -1675,7 +1675,7 @@ signing algorithms. Optional `options` argument controls the
 
 ### crypto.generateKeyPair(type, options, callback)
 <!-- YAML
-added: REPLACEME
+added: v11.0.0
 -->
 * `type`: {string} Must be `'rsa'`, `'dsa'` or `'ec'`.
 * `options`: {Object}
@@ -1736,7 +1736,7 @@ a `Promise` for an `Object` with `publicKey` and `privateKey` properties.
 
 ### crypto.generateKeyPairSync(type, options)
 <!-- YAML
-added: REPLACEME
+added: v11.0.0
 -->
 * `type`: {string} Must be `'rsa'`, `'dsa'` or `'ec'`.
 * `options`: {Object}
