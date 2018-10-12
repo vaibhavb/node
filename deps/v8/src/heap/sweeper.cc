@@ -76,7 +76,7 @@ class Sweeper::SweeperTask final : public CancelableTask {
         space_to_start_(space_to_start),
         tracer_(isolate->heap()->tracer()) {}
 
-  virtual ~SweeperTask() {}
+  ~SweeperTask() override = default;
 
  private:
   void RunInternal() final {
@@ -111,7 +111,7 @@ class Sweeper::IncrementalSweeperTask final : public CancelableTask {
   IncrementalSweeperTask(Isolate* isolate, Sweeper* sweeper)
       : CancelableTask(isolate), isolate_(isolate), sweeper_(sweeper) {}
 
-  virtual ~IncrementalSweeperTask() {}
+  ~IncrementalSweeperTask() override = default;
 
  private:
   void RunInternal() final {
@@ -249,7 +249,6 @@ int Sweeper::RawSweep(Page* p, FreeListRebuildingMode free_list_mode,
   ArrayBufferTracker::FreeDead(p, marking_state_);
 
   Address free_start = p->area_start();
-  DCHECK_EQ(0, free_start % (32 * kPointerSize));
 
   // If we use the skip list for code space pages, we have to lock the skip
   // list because it could be accessed concurrently by the runtime or the
@@ -447,10 +446,11 @@ int Sweeper::ParallelSweepPage(Page* page, AllocationSpace identity) {
 void Sweeper::ScheduleIncrementalSweepingTask() {
   if (!incremental_sweeper_pending_) {
     incremental_sweeper_pending_ = true;
-    IncrementalSweeperTask* task =
-        new IncrementalSweeperTask(heap_->isolate(), this);
     v8::Isolate* isolate = reinterpret_cast<v8::Isolate*>(heap_->isolate());
-    V8::GetCurrentPlatform()->CallOnForegroundThread(isolate, task);
+    auto taskrunner =
+        V8::GetCurrentPlatform()->GetForegroundTaskRunner(isolate);
+    taskrunner->PostTask(
+        base::make_unique<IncrementalSweeperTask>(heap_->isolate(), this));
   }
 }
 
@@ -530,7 +530,7 @@ class Sweeper::IterabilityTask final : public CancelableTask {
         pending_iterability_task_(pending_iterability_task),
         tracer_(isolate->heap()->tracer()) {}
 
-  virtual ~IterabilityTask() {}
+  ~IterabilityTask() override = default;
 
  private:
   void RunInternal() final {

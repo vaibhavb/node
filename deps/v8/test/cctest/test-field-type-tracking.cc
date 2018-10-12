@@ -78,6 +78,14 @@ static Handle<AccessorPair> CreateAccessorPair(bool with_getter,
   return pair;
 }
 
+// Check cached migration target map after Map::Update() and Map::TryUpdate()
+static void CheckMigrationTarget(Isolate* isolate, Map* old_map, Map* new_map) {
+  Map* target = TransitionsAccessor(isolate, handle(old_map, isolate))
+                    .GetMigrationTarget();
+  if (!target) return;
+  CHECK_EQ(new_map, target);
+  CHECK_EQ(Map::TryUpdateSlow(isolate, old_map), target);
+}
 
 class Expectations {
   static const int MAX_PROPERTIES = 10;
@@ -370,9 +378,8 @@ class Expectations {
                  heap_type);
 
     Handle<String> name = MakeName("prop", property_index);
-    return Map::TransitionToDataProperty(
-        isolate_, map, name, value, attributes, constness,
-        Object::CERTAINLY_NOT_STORE_FROM_KEYED);
+    return Map::TransitionToDataProperty(isolate_, map, name, value, attributes,
+                                         constness, StoreOrigin::kNamed);
   }
 
   Handle<Map> TransitionToDataConstant(Handle<Map> map,
@@ -383,9 +390,9 @@ class Expectations {
     SetDataConstant(property_index, attributes, value);
 
     Handle<String> name = MakeName("prop", property_index);
-    return Map::TransitionToDataProperty(
-        isolate_, map, name, value, attributes, PropertyConstness::kConst,
-        Object::CERTAINLY_NOT_STORE_FROM_KEYED);
+    return Map::TransitionToDataProperty(isolate_, map, name, value, attributes,
+                                         PropertyConstness::kConst,
+                                         StoreOrigin::kNamed);
   }
 
   Handle<Map> FollowDataTransition(Handle<Map> map,
@@ -657,7 +664,9 @@ static void TestGeneralizeField(int detach_property_at_index,
   CanonicalHandleScope canonical(isolate);
   JSHeapBroker broker(isolate, &zone);
   CompilationDependencies dependencies(isolate, &zone);
-  dependencies.DependOnFieldType(MapRef(&broker, map), property_index);
+  MapRef map_ref(&broker, map);
+  map_ref.SerializeOwnDescriptors();
+  dependencies.DependOnFieldType(map_ref, property_index);
 
   Handle<Map> field_owner(map->FindFieldOwner(isolate, property_index),
                           isolate);
@@ -706,6 +715,7 @@ static void TestGeneralizeField(int detach_property_at_index,
   // Update all deprecated maps and check that they are now the same.
   Handle<Map> updated_map = Map::Update(isolate, map);
   CHECK_EQ(*new_map, *updated_map);
+  CheckMigrationTarget(isolate, *map, *updated_map);
 }
 
 static void TestGeneralizeField(const CRFTData& from, const CRFTData& to,
@@ -966,9 +976,11 @@ TEST(GeneralizeFieldWithAccessorProperties) {
   // Update all deprecated maps and check that they are now the same.
   Handle<Map> updated_map = Map::Update(isolate, map);
   CHECK_EQ(*active_map, *updated_map);
+  CheckMigrationTarget(isolate, *map, *updated_map);
   for (int i = 0; i < kPropCount; i++) {
     updated_map = Map::Update(isolate, maps[i]);
     CHECK_EQ(*active_map, *updated_map);
+    CheckMigrationTarget(isolate, *maps[i], *updated_map);
   }
 }
 
@@ -1029,7 +1041,9 @@ static void TestReconfigureDataFieldAttribute_GeneralizeField(
   CanonicalHandleScope canonical(isolate);
   JSHeapBroker broker(isolate, &zone);
   CompilationDependencies dependencies(isolate, &zone);
-  dependencies.DependOnFieldType(MapRef(&broker, map), kSplitProp);
+  MapRef map_ref(&broker, map);
+  map_ref.SerializeOwnDescriptors();
+  dependencies.DependOnFieldType(map_ref, kSplitProp);
 
   // Reconfigure attributes of property |kSplitProp| of |map2| to NONE, which
   // should generalize representations in |map1|.
@@ -1057,6 +1071,7 @@ static void TestReconfigureDataFieldAttribute_GeneralizeField(
   // Update deprecated |map|, it should become |new_map|.
   Handle<Map> updated_map = Map::Update(isolate, map);
   CHECK_EQ(*new_map, *updated_map);
+  CheckMigrationTarget(isolate, *map, *updated_map);
 }
 
 // This test ensures that trivial field generalization (from HeapObject to
@@ -1113,7 +1128,9 @@ static void TestReconfigureDataFieldAttribute_GeneralizeFieldTrivial(
   CanonicalHandleScope canonical(isolate);
   JSHeapBroker broker(isolate, &zone);
   CompilationDependencies dependencies(isolate, &zone);
-  dependencies.DependOnFieldType(MapRef(&broker, map), kSplitProp);
+  MapRef map_ref(&broker, map);
+  map_ref.SerializeOwnDescriptors();
+  dependencies.DependOnFieldType(map_ref, kSplitProp);
 
   // Reconfigure attributes of property |kSplitProp| of |map2| to NONE, which
   // should generalize representations in |map1|.
@@ -1365,6 +1382,7 @@ struct CheckDeprecated {
     // Update deprecated |map|, it should become |new_map|.
     Handle<Map> updated_map = Map::Update(isolate, map);
     CHECK_EQ(*new_map, *updated_map);
+    CheckMigrationTarget(isolate, *map, *updated_map);
   }
 };
 
@@ -1794,7 +1812,9 @@ static void TestReconfigureElementsKind_GeneralizeField(
   CanonicalHandleScope canonical(isolate);
   JSHeapBroker broker(isolate, &zone);
   CompilationDependencies dependencies(isolate, &zone);
-  dependencies.DependOnFieldType(MapRef(&broker, map), kDiffProp);
+  MapRef map_ref(&broker, map);
+  map_ref.SerializeOwnDescriptors();
+  dependencies.DependOnFieldType(map_ref, kDiffProp);
 
   // Reconfigure elements kinds of |map2|, which should generalize
   // representations in |map|.
@@ -1821,6 +1841,7 @@ static void TestReconfigureElementsKind_GeneralizeField(
   // Update deprecated |map|, it should become |new_map|.
   Handle<Map> updated_map = Map::Update(isolate, map);
   CHECK_EQ(*new_map, *updated_map);
+  CheckMigrationTarget(isolate, *map, *updated_map);
 
   // Ensure Map::FindElementsKindTransitionedMap() is able to find the
   // transitioned map.
@@ -1889,7 +1910,9 @@ static void TestReconfigureElementsKind_GeneralizeFieldTrivial(
   CanonicalHandleScope canonical(isolate);
   JSHeapBroker broker(isolate, &zone);
   CompilationDependencies dependencies(isolate, &zone);
-  dependencies.DependOnFieldType(MapRef(&broker, map), kDiffProp);
+  MapRef map_ref(&broker, map);
+  map_ref.SerializeOwnDescriptors();
+  dependencies.DependOnFieldType(map_ref, kDiffProp);
 
   // Reconfigure elements kinds of |map2|, which should generalize
   // representations in |map|.
@@ -2330,9 +2353,11 @@ static void TestGeneralizeFieldWithSpecialTransition(TestConfig& config,
   // Update all deprecated maps and check that they are now the same.
   Handle<Map> updated_map = Map::Update(isolate, map);
   CHECK_EQ(*active_map, *updated_map);
+  CheckMigrationTarget(isolate, *map, *updated_map);
   for (int i = 0; i < kPropCount; i++) {
     updated_map = Map::Update(isolate, maps[i]);
     CHECK_EQ(*active_map, *updated_map);
+    CheckMigrationTarget(isolate, *maps[i], *updated_map);
   }
 }
 
@@ -2614,6 +2639,7 @@ struct FieldGeneralizationChecker {
     CHECK_NE(*map1, *map2);
     Handle<Map> updated_map = Map::Update(isolate, map1);
     CHECK_EQ(*map2, *updated_map);
+    CheckMigrationTarget(isolate, *map1, *updated_map);
 
     expectations2.SetDataField(descriptor_, attributes_, constness_,
                                representation_, heap_type_);
