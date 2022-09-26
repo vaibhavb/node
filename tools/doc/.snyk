@@ -1,0 +1,14 @@
+# Snyk (https://snyk.io) policy file, patches or ignores known vulnerabilities.
+version: v1.25.0
+ignore: {}
+# patches apply the minimum changes required to fix a vulnerability
+patch:
+  'npm:extend:20180424':
+    - unified > extend:
+        patched: '2022-09-24T20:25:01.813Z'
+    - unist-util-find > remark > remark-parse > extend:
+        patched: '2022-09-24T20:25:01.813Z'
+    - unist-util-find > remark > remark-stringify > extend:
+        patched: '2022-09-24T20:25:01.813Z'
+    - unist-util-find > remark > unified > extend:
+        patched: '2022-09-24T20:25:01.813Z'
